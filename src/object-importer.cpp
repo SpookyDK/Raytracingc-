@@ -90,8 +90,6 @@ Model::Model(const std::string& filepath){
 int Model::move_position(Vec3 offset){
     for (int i = 0; i < triangles.size(); i++){
         triangles[i].v1 += offset;
-        triangles[i].v2 += offset;
-        triangles[i].v3 += offset;
     }
     return 0;
 }

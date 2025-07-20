@@ -41,57 +41,20 @@ struct Vec3{
 
 };
 
-struct Vectors3D{
-    std::vector<float> x,y,z;
-};
-
-inline float dotSoA(Vectors3D& v, int i, int j){
-     return v.x[i] * v.x[j] +
-            v.y[i] * v.y[j] +
-            v.z[i] * v.z[j];
-}
-
-struct TriangleSoA{
-    std::vector<int> v1,v2,v3;};
-
-struct ModelSoA{
-    Vectors3D vectors;
-    TriangleSoA tri_index;
-    Vectors3D normals;
-
-};
 inline __attribute__((always_inline)) float dot(const Vec3& a, const Vec3& b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
-inline Vectors3D calculate_tri_normals(Vectors3D& vectors, TriangleSoA& tri_index){
-    Vectors3D normals;
-    for (int i = 0; i < tri_index.v1.size(); i++){
-            Vec3 edge1 = Vec3{vectors.x[tri_index.v2[i]] - vectors.x[tri_index.v1[i]],
-                         vectors.y[tri_index.v2[i]] - vectors.y[tri_index.v1[i]],
-                         vectors.z[tri_index.v2[i]] - vectors.z[tri_index.v1[i]]};
-                         
-            Vec3 edge2 = Vec3{vectors.x[tri_index.v3[i]] - vectors.x[tri_index.v1[i]],
-                         vectors.y[tri_index.v3[i]] - vectors.y[tri_index.v1[i]],
-                         vectors.z[tri_index.v3[i]] - vectors.z[tri_index.v1[i]]};
-        Vec3 n = edge1.cross(edge2).normalize();
-        normals.x.push_back(n.x);
-        normals.y.push_back(n.y);
-        normals.z.push_back(n.z);
-
-    }
-
-    return normals;
-}
 
 struct Triangle{
-    Vec3 v1, v2, v3;
+    Vec3 v1;
     Vec3 n;
+    Vec3 edge1, edge2;
 
     Triangle(const Vec3& a, const Vec3& b, const Vec3& c)
-        : v1(a), v2(b), v3(c) {
+        : v1(a){
 
-        Vec3 edge1 = v2 - v1;
-        Vec3 edge2 = v3 - v1;
+        edge1 = b - v1;
+        edge2 = c - v1;
         n = edge1.cross(edge2).normalize();
     }
 

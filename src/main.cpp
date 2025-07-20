@@ -38,35 +38,6 @@ int MakeCameraNormal(int width, int height, RGB* pixels, Vec3* Camera_Vectors, f
 }
 
     constexpr float epsilon = std::numeric_limits<float>::epsilon();
-float GetRayIntersection_T(Vec3 ray, Vec3 origin, Triangle tri){
-// https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
-
-    Vec3 edge1 = tri.v2 - tri.v1;
-    Vec3 edge2 = tri.v3 - tri.v1;
-    Vec3 ray_cross_e2 = ray.cross(edge2);
-    float det = edge1.dot(ray_cross_e2);
-
-    if (fabsf(det) <= epsilon)
-        return 0;
-
-    float inv_det = 1.0 / det;
-    Vec3 s = origin - tri.v1;
-    float u = inv_det * s.dot(ray_cross_e2);
-
-    if (u < -epsilon || u > 1 + epsilon)
-        return 0;
-
-    Vec3 s_cross_e1 = s.cross(edge1);
-    float v = inv_det * ray.dot(s_cross_e1);
-
-    if (v < -epsilon || (u + v) > 1.0f + epsilon)
-        return 0;
-
-    // At this stage we can compute t to find out where the intersection point is on the line.
-    float t = inv_det * edge2.dot(s_cross_e1);
-
-    return t;
-}
 
 int get_collions(int width, int height, RGB* pixels, const Vec3* Camera_Vectors, const std::vector<Triangle>& triangles){
     Vec3 origin = Vec3{0,0,0};
@@ -86,10 +57,8 @@ int get_collions(int width, int height, RGB* pixels, const Vec3* Camera_Vectors,
             float t = 0;
             Triangle tri = triangles[j];
 
-            Vec3 edge1 = tri.v2 - tri.v1;
-            Vec3 edge2 = tri.v3 - tri.v1;
-            Vec3 ray_cross_e2 = ray.cross(edge2);
-            float det = dot(edge1, ray_cross_e2);
+            Vec3 ray_cross_e2 = ray.cross(tri.edge2);
+            float det = dot(tri.edge1, ray_cross_e2);
 
             if (fabsf(det) <= epsilon)
                 continue;
@@ -97,17 +66,16 @@ int get_collions(int width, int height, RGB* pixels, const Vec3* Camera_Vectors,
             float inv_det = 1.0 / det;
             Vec3 s = origin - tri.v1;
             float u = inv_det * dot(s, ray_cross_e2);
-
-            if (u < -epsilon || u > 1 + epsilon)
+            if (__builtin_expect(u < -epsilon || u > 1.0f + epsilon, 0))
                 continue;
 
-            Vec3 s_cross_e1 = s.cross(edge1);
+            Vec3 s_cross_e1 = s.cross(tri.edge1);
             float v = inv_det * dot(ray, s_cross_e1);
 
             if (v < -epsilon || (u + v) > 1.0f + epsilon)
                 continue;
 
-            t = inv_det * dot(edge2, s_cross_e1);
+            t = inv_det * dot(tri.edge2, s_cross_e1);
             if (t < min_dist){
                 min_dist = t;
                 collision_triangle = j;
