@@ -13,7 +13,7 @@
 
 
 
-int MakeCameraNormal(int width, int height, RGB* pixels, Vec3* Camera_Vectors, float camera_plane_distance, float camera_plane_width, float camera_plane_height)
+int MakeCameraNormal(int width, int height, RGB* pixels, Vec3SoA Camera_Vectors, float camera_plane_distance, float camera_plane_width, float camera_plane_height)
 {
     for(int i = 0; i < width * height; i++){
         int row = i / width - height / 2;
@@ -27,7 +27,7 @@ int MakeCameraNormal(int width, int height, RGB* pixels, Vec3* Camera_Vectors, f
         x /= length;
         y /= length;
         z /= length;
-        Camera_Vectors[i] = {x,y,z};
+        Camera_Vectors.set(i, Vec3{x,y,z});
         // Uncomment for normal output to image
         // unsigned char r = (unsigned char)((x * 0.5 + 0.5)*255);
         // unsigned char g = (unsigned char)((y * 0.5 + 0.5)*255);
@@ -39,57 +39,55 @@ int MakeCameraNormal(int width, int height, RGB* pixels, Vec3* Camera_Vectors, f
 
     constexpr float epsilon = std::numeric_limits<float>::epsilon();
 
-int get_collions(int width, int height, RGB* pixels, const Vec3* Camera_Vectors, const std::vector<Triangle>& triangles){
+int get_collions(int width, int height, RGB* pixels, const Vec3SoA Camera_Vectors, const TriangleSoA& triangleSoA){
     Vec3 origin = Vec3{0,0,0};
+    int collision_triangles[width*height];
 
 
 
     // Pixels loop
     for (int i = 0; i < width * height; i++){
         float min_dist = 100000;
-        unsigned char collision_triangle;
-        bool collision = false;
-        Vec3 ray = Camera_Vectors[i];
+        collision_triangles[i] = -1;
 
 
         // Triangle loop
-        for (int j = 0; j < triangles.size(); j++){
+        for (int j = 0; j < triangleSoA.v1.x.size(); j++){
             float t = 0;
-            Triangle tri = triangles[j];
-
-            Vec3 ray_cross_e2 = ray.cross(tri.edge2);
-            float det = dot(tri.edge1, ray_cross_e2);
+            Vec3 ray_cross_e2 = cross_at(Camera_Vectors, i, triangleSoA.edge2, j);
+            // Vec3 ray_cross_e2 = ray.cross(triangleSoA.edge2.get(j));
+            float det = dot(triangleSoA.edge1.get(j), ray_cross_e2);
 
             if (fabsf(det) <= epsilon)
                 continue;
 
             float inv_det = 1.0 / det;
-            Vec3 s = origin - tri.v1;
+            Vec3 s = origin - triangleSoA.v1.get(j);
             float u = inv_det * dot(s, ray_cross_e2);
             if (__builtin_expect(u < -epsilon || u > 1.0f + epsilon, 0))
                 continue;
 
-            Vec3 s_cross_e1 = s.cross(tri.edge1);
-            float v = inv_det * dot(ray, s_cross_e1);
+            Vec3 s_cross_e1 = s.cross(triangleSoA.edge1.get(j));
+            float v = inv_det * dot(Camera_Vectors.get(j), s_cross_e1);
 
             if (v < -epsilon || (u + v) > 1.0f + epsilon)
                 continue;
 
-            t = inv_det * dot(tri.edge2, s_cross_e1);
+            t = inv_det * dot(triangleSoA.edge2.get(j), s_cross_e1);
             if (t < min_dist){
                 min_dist = t;
-                collision_triangle = j;
-                collision = true;
+                collision_triangles[i] = j;
             }
         }
-        if (collision){
-            pixels[i] = {(unsigned char)((triangles[collision_triangle].n.x / 2 + 1) * 255),
-                         (unsigned char)((triangles[collision_triangle].n.y / 2 +1) * 255),
-                         (unsigned char)((triangles[collision_triangle].n.z / 2 + 1) * 255)};
+    }
+    for (int i = 0; i < width * height; i++)
+        if (collision_triangles[i] >= 0)
+        {
+            pixels[i] = {(unsigned char)((triangleSoA.n.get(collision_triangles[i]).x / 2 + 1) * 255),
+                         (unsigned char)((triangleSoA.n.get(collision_triangles[i]).y/ 2 +1) * 255),
+                         (unsigned char)((triangleSoA.n.get(collision_triangles[i]).z/ 2 + 1) * 255)};
         }
         else {pixels[i] = {0,0,0};}
-    }
-    
 
     return 1;
 }
@@ -99,12 +97,13 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
     Model test = Model("../sphere.obj");
     test.move_position(Vec3{0,0,3});
+    TriangleSoA trisoa = TriToSoA(test.triangles);
     int width = 512;
     int height = 512;
     RGB* pixels = new RGB[width*height];
-    Vec3* Camera_Vectors = new Vec3[width*height];
+    Vec3SoA Camera_Vectors(width*height);
     MakeCameraNormal(width, height, pixels, Camera_Vectors, 0.5, 16/5, 16/5);
-    get_collions(width,height,pixels,Camera_Vectors, test.triangles);
+    get_collions(width,height,pixels,Camera_Vectors, trisoa );
 
     stbi_write_bmp("Test.bmp", width,height,3,pixels);
     std::cout << std::chrono::high_resolution_clock::now() - start;
