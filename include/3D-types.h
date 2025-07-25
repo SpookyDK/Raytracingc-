@@ -69,10 +69,10 @@ struct Vec3SoA {
         z.resize(count);
     }
 
-    void set(size_t index, const Vec3& v) {
-        x[index] = v.x;
-        y[index] = v.y;
-        z[index] = v.z;
+    void set(size_t index, float _x, float _y, float _z) {
+        x[index] = _x;
+        y[index] = _y;
+        z[index] = _z;
     }
 
     Vec3 get(size_t index) const {
@@ -95,16 +95,16 @@ struct TriangleSoA {
         Vec3 e2 = c - a;
         Vec3 normal = e1.cross(e2).normalize();
 
-        v1.set(index, a);
-        edge1.set(index, e1);
-        edge2.set(index, e2);
-        n.set(index, normal);
+        v1.set(index, a.x, a.y, a.z);
+        edge1.set(index, e1.x, e1.y, e1.z);
+        edge2.set(index, e2.x, e2.y, e2.z);
+        n.set(index, normal.x, normal.y, normal.z);
     }
     void addEdgeTriangle(size_t index, const Vec3& _v1, const Vec3& _edge1, const Vec3& _edge2, const Vec3& _normal){
-        v1.set(index, _v1);
-        edge1.set(index, _edge1);
-        edge2.set(index, _edge1);
-        n.set(index,_normal);
+        v1.set(index, _v1.x, _v1.y, _v1.z);
+        edge1.set(index, _edge1.x, _edge1.y, _edge1.z);
+        edge2.set(index, _edge2.x, _edge2.y, _edge2.z);
+        n.set(index,_normal.x, _normal.y, _normal.z);
     }
 };
 
