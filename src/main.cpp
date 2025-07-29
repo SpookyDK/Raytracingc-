@@ -118,6 +118,7 @@ int get_collions(int width, int height, RGB* pixels,
     const b_float originz = b_float(0.0f);
 
     const b_float epsilon = b_float(std::numeric_limits<float>::epsilon());
+    std::cout << "\n batch size = " << batch_size << "\n";
 
 
     for (int j = 0; j < triangle_count; ++j) {

@@ -22,3 +22,4 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 # Executable
 add_executable(MyExecutable ${SOURCES})
 target_include_directories(MyExecutable PUBLIC include)
+# target_compile_options(MyExecutable PRIVATE -mavx2)
