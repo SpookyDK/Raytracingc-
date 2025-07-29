@@ -22,6 +22,7 @@ int MakeCameraNormal(int width, int height, RGB* pixels, Vec3SoA& Camera_Vectors
 
     const float pixel_width = camera_plane_width / width;
     const float pixel_height = camera_plane_height / height;
+    std::cout << pixel_width << " " << pixel_height << "\n";
     const float half_width = width / 2.0f;
     const float half_height = height / 2.0f;
 
@@ -127,6 +128,10 @@ int get_collions(int width, int height, RGB* pixels,
         const float sy = originy - v_1y;
         const float sz = originz - v_1z;
 
+        const float s_cross_e1x = sy * edge_1z - sz * edge_1y;
+        const float s_cross_e1y = sz * edge_1x - sx * edge_1z;
+        const float s_cross_e1z = sx * edge_1y - sy * edge_1x;
+
         for (size_t i = 0; i < width * height; ++i) {
         const float dx = cam_x[i];
         const float dy = cam_y[i];
@@ -158,9 +163,6 @@ int get_collions(int width, int height, RGB* pixels,
         }
 
             // s x edge1
-            const float s_cross_e1x = sy * edge_1z - sz * edge_1y;
-            const float s_cross_e1y = sz * edge_1x - sx * edge_1z;
-            const float s_cross_e1z = sx * edge_1y - sy * edge_1x;
 
             // v parameter
             const float v = inv_det * (dx * s_cross_e1x +
@@ -203,14 +205,14 @@ int get_collions(int width, int height, RGB* pixels,
 
 int main() {
     auto start = std::chrono::high_resolution_clock::now();
-    Model test = Model("../sphere.obj");
+    Model test = Model("../monkey.obj");
     test.move_position(Vec3{0,0,3});
     TriangleSoA trisoa = TriToSoA(test.triangles);
-    int width = 1024;
-    int height = 1024;
+    int width = 1920;
+    int height = 1080;
     RGB* pixels = new RGB[width*height];
     Vec3SoA Camera_Vectors(width*height);
-    MakeCameraNormal(width, height, pixels, Camera_Vectors, 0.5, 16/5, 16/5);
+    MakeCameraNormal(width, height, pixels, Camera_Vectors, 0.5, 16.0f/8.0f, 9.0f/8.0f);
     get_collions(width,height,pixels,Camera_Vectors, trisoa );
 
     stbi_write_bmp("Test.bmp", width,height,3,pixels);
