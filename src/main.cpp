@@ -75,13 +75,9 @@ int MakeCameraNormal(int width, int height, RGB* pixels, Vec3SoA& Camera_Vectors
     return 1;
 }
 
-    constexpr float epsilon = std::numeric_limits<float>::epsilon();
 
 int get_collions(int width, int height, RGB* pixels,
                  const Vec3SoA& Camera_Vectors, const TriangleSoA& triangleSoA) {
-    const float originx = 0.0f;
-    const float originy = 0.0f;
-    const float originz = 0.0f;
 
 
     // Get raw restrict pointers for camera rays
@@ -109,80 +105,107 @@ int get_collions(int width, int height, RGB* pixels,
     const size_t triangle_count = triangleSoA.v1.x.size();
     std::cout << triangle_count << "kage";
     size_t pixel_count = static_cast<size_t>(width) * height;
-    std::vector<int> collision_triangles(pixel_count, -1);
-    std::vector<float> collision_distance(pixel_count, 1000000.0f);
+    AlignedVector<int> collision_triangles(pixel_count, -1);
+    AlignedVector<float> collision_distance(pixel_count, 1000000.0f);
+
+    using b_float = xsimd::batch<float>;
+    using b_int = xsimd::batch<int>;
+    const int batch_size = b_float::size;
+    int vec_size = pixel_count - (pixel_count % batch_size);
+
+    const b_float originx = b_float(0.0f);
+    const b_float originy = b_float(0.0f);
+    const b_float originz = b_float(0.0f);
+
+    const b_float epsilon = b_float(std::numeric_limits<float>::epsilon());
+
 
     for (int j = 0; j < triangle_count; ++j) {
-        const float edge_2x = edge2x[j];
-        const float edge_2y = edge2y[j];
-        const float edge_2z = edge2z[j];
-        const float edge_1x = edge1x[j];
-        const float edge_1y = edge1y[j];
-        const float edge_1z = edge1z[j];
-        const float v_1x = v1x[j];
-        const float v_1y = v1y[j];
-        const float v_1z = v1z[j];
+        const b_float edge_2x = b_float(edge2x[j]);
+        const b_float edge_2y = b_float(edge2y[j]);
+        const b_float edge_2z = b_float(edge2z[j]);
+        const b_float edge_1x = b_float(edge1x[j]);
+        const b_float edge_1y = b_float(edge1y[j]);
+        const b_float edge_1z = b_float(edge1z[j]);
+        const b_float v_1x = b_float(v1x[j]);
+        const b_float v_1y = b_float(v1y[j]);
+        const b_float v_1z = b_float(v1z[j]);
 
 
-        const float sx = originx - v_1x;
-        const float sy = originy - v_1y;
-        const float sz = originz - v_1z;
+        const b_float sx = originx - v_1x;
+        const b_float sy = originy - v_1y;
+        const b_float sz = originz - v_1z;
 
-        const float s_cross_e1x = sy * edge_1z - sz * edge_1y;
-        const float s_cross_e1y = sz * edge_1x - sx * edge_1z;
-        const float s_cross_e1z = sx * edge_1y - sy * edge_1x;
+        const b_float s_cross_e1x = sy * edge_1z - sz * edge_1y;
+        const b_float s_cross_e1y = sz * edge_1x - sx * edge_1z;
+        const b_float s_cross_e1z = sx * edge_1y - sy * edge_1x;
 
-        for (size_t i = 0; i < width * height; ++i) {
-        const float dx = cam_x[i];
-        const float dy = cam_y[i];
-        const float dz = cam_z[i];
+
+        for (size_t i = 0; i < vec_size; i += batch_size) {
+        const b_float CamXvec = b_float::load_aligned(&cam_x[i]);
+        const b_float CamYvec = b_float::load_aligned(&cam_y[i]);
+        const b_float CamZvec = b_float::load_aligned(&cam_z[i]);
             // Cross product: ray x edge2
-            const float ray_cross_e2x = dy * edge_2z - dz * edge_2y;
-            const float ray_cross_e2y = dz * edge_2x - dx * edge_2z;
-            const float ray_cross_e2z = dx * edge_2y - dy * edge_2x;
+            b_float ray_cross_e2x = CamYvec * edge_2z - CamZvec * edge_2y;
+            b_float ray_cross_e2y = CamZvec * edge_2x - CamXvec * edge_2z;
+            b_float ray_cross_e2z = CamXvec * edge_2y - CamYvec * edge_2x;
+
+            // const float ray_cross_e2x = dy * edge_2z - dz * edge_2y;
+            // const float ray_cross_e2y = dz * edge_2x - dx * edge_2z;
+            // const float ray_cross_e2z = dx * edge_2y - dy * edge_2x;
 
             // Determinant
-            const float det = edge_1x * ray_cross_e2x +
+            const b_float det = edge_1x * ray_cross_e2x +
                               edge_1y * ray_cross_e2y +
                               edge_1z * ray_cross_e2z;
 
-            if (fabsf(det) <= epsilon){
-                continue;
-        }
+        //     if (fabsf(det) <= epsilon){
+        //         continue;
+        // }
+            auto valid_det = (det < epsilon);
 
-            const float inv_det = 1.0f / det;
+            const b_float inv_det = xsimd::select(valid_det, 1.0f / det, b_float(0.0f));
 
             // s = origin - v1
 
             // u parameter
-            const float u = inv_det * (sx * ray_cross_e2x +
+            const b_float u = inv_det * (sx * ray_cross_e2x +
                                        sy * ray_cross_e2y +
                                        sz * ray_cross_e2z);
-            if (__builtin_expect(u < -epsilon || u > 1.0f + epsilon, 0)){
-                continue;
-        }
+            auto valid_u = (u >= -epsilon) & (u <= 1.0f + epsilon);
+        //     if (__builtin_expect(u < -epsilon || u > 1.0f + epsilon, 0)){
+        //         continue;
+        // }
 
             // s x edge1
 
             // v parameter
-            const float v = inv_det * (dx * s_cross_e1x +
-                                       dy * s_cross_e1y +
-                                       dz * s_cross_e1z);
+            const b_float v = inv_det * (CamXvec * s_cross_e1x +
+                                       CamYvec * s_cross_e1y +
+                                       CamZvec * s_cross_e1z);
 
-            if (v < -epsilon || (u + v) > 1.0f + epsilon){
-            continue;
-        }
+            auto valid_v = (v >= -epsilon) & ((u + v) <= 1.0f + epsilon);
+        //     if (v < -epsilon || (u + v) > 1.0f + epsilon){
+        //     continue;
+        // }
 
             // t parameter
-            const float t = inv_det * (edge_2x * s_cross_e1x +
+            const b_float t = inv_det * (edge_2x * s_cross_e1x +
                                        edge_2y * s_cross_e1y +
                                        edge_2z * s_cross_e1z);
+            b_float old_dist = b_float::load_aligned(&collision_distance[i]);
 
-            if (t < collision_distance[i]) {
-                collision_distance[i] = t;
-                collision_triangles[i] = j;
-                // std::cout << "coliiions \n";
-            }
+            auto is_closer = t < old_dist;
+            auto valid_mask = valid_det & valid_u & valid_v & is_closer;
+            auto valid_mask_int = xsimd::bit_cast<typename b_int::batch_bool_type>(valid_mask);
+            b_float new_dist = xsimd::select(valid_mask, t, old_dist);
+            const b_int old_tri = b_int::load_aligned(&collision_triangles[i]);
+            const b_int new_tri = b_int(j);
+            b_int updated_tri = xsimd::select(valid_mask_int, new_tri, old_tri);
+            updated_tri.store_aligned(&collision_triangles[i]);
+
+            new_dist.store_aligned(&collision_distance[i]);
+
         }
     }
 

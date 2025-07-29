@@ -5,7 +5,7 @@
 #include "xsimd/xsimd.hpp"
 
 template <typename T>
-using AlignedVector = std::vector<T, xsimd::aligned_allocator<T, 64>>;
+using AlignedVector = std::vector<T, xsimd::aligned_allocator<T, 32>>;
 
 struct RGB {
     unsigned char r, g, b;};
