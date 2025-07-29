@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <cmath>
 #include <vector>
+#include "xsimd/xsimd.hpp"
+
+template <typename T>
+using AlignedVector = std::vector<T, xsimd::aligned_allocator<T, 64>>;
 
 struct RGB {
     unsigned char r, g, b;};
@@ -61,7 +65,7 @@ struct Triangle{
 
 };
 struct Vec3SoA {
-    std::vector<float> x, y, z;
+    AlignedVector<float> x, y, z;
 
     Vec3SoA(size_t count) {
         x.resize(count);
